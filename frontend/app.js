@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:5001/api';
 
 const fetchData = async (endpoint, params = {}) => {
     try {
@@ -141,21 +141,12 @@ const Query1Listings = () => {
                                         <p className="text-xl font-semibold">{listing.property_type}</p>
                                     </div>
                                     <div className="glass-panel text-slate-100 bg-white/5 border-white/10">
-                                        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Price/night</p>
-                                        <p className="text-xl font-semibold">${listing.price?.toFixed(2)}</p>
-                                    </div>
-                                    <div className="glass-panel text-slate-100 bg-white/5 border-white/10">
                                         <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Amenities</p>
                                         <p className="mt-2 text-sm leading-6">
                                             {listing.amenities?.slice(0, 4).join(' • ') || 'None'}
                                         </p>
                                     </div>
                                 </div>
-
-                                <p className="text-slate-300 leading-7 mb-4">{listing.description}</p>
-                                <a href={listing.listing_url} target="_blank" rel="noreferrer" className="btn-solid btn-secondary">
-                                    Open listing
-                                </a>
                             </div>
                         ))}
                     </div>
@@ -456,28 +447,44 @@ const Query5ReviewTrend = () => {
                 </div>
             )}
 
-            {data && (
-                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                    {Object.entries(data.trend).map(([city, cityData], idx) => (
-                        <div key={city} className="glass-card reveal" style={revealDelay(idx)}>
-                            <h3 className="text-2xl font-semibold mb-4">{city}</h3>
-                            <div className="space-y-3">
-                                {Object.entries(cityData.december_reviews)
-                                    .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
-                                    .map(([year, count]) => (
-                                        <div key={year} className="flex items-center justify-between bg-white/10 p-3 rounded-xl border border-white/10">
-                                            <span className="text-sm text-slate-300">{year}</span>
-                                            <span className="status-pill bg-amber-400/15 text-amber-200">{count}</span>
-                                        </div>
-                                    ))}
-                                {Object.keys(cityData.december_reviews).length === 0 && (
-                                    <p className="text-slate-400 italic">No December reviews yet.</p>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+            {data && (() => {
+                const allCities = Object.entries(data.trend);
+                const globalMax = Math.max(
+                    ...allCities.flatMap(([, cityData]) =>
+                        Object.values(cityData.december_reviews)
+                    )
+                );
+                return (
+                    <div className="grid gap-6 md:grid-cols-2">
+                        {allCities.map(([city, cityData], idx) => {
+                            const rows = Object.entries(cityData.december_reviews)
+                                .sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+                            return (
+                                <div key={city} className="glass-card reveal" style={revealDelay(idx)}>
+                                    <h3 className="text-xl font-semibold mb-5">{city}</h3>
+                                    <div className="space-y-2">
+                                        {rows.map(([year, count]) => {
+                                            const pct = globalMax > 0 ? (count / globalMax) * 100 : 0;
+                                            return (
+                                                <div key={year} className="flex items-center gap-3">
+                                                    <span className="text-xs text-slate-400 w-10 shrink-0 text-right">{year}</span>
+                                                    <div className="flex-1 bg-white/5 rounded-full h-5 overflow-hidden">
+                                                        <div
+                                                            className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500"
+                                                            style={{ width: `${pct}%`, transition: 'width 0.6s ease' }}
+                                                        />
+                                                    </div>
+                                                    <span className="text-xs text-slate-300 w-12 shrink-0">{count.toLocaleString()}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+            })()}
         </div>
     );
 };

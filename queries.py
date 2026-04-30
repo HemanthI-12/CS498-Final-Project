@@ -84,23 +84,21 @@ def q1_airbnb_search(check_in: datetime, check_out: datetime, city: str = "Portl
     return list(db.calendar.aggregate(pipeline))
 
 # Query 2: Neighborhoods with No Available Listings
+#
+# Find neighborhoods across all cities that have no listings with availability in a given month.
+# Params: year (int), month (int)
+# Returns: list of {"city": str, "neighborhood": str} sorted by city then neighborhood
 
-# Find neighborhoods in a city that have no listings with availability in a given month.
-# Params: city, year (int), month (int)
-# Returns: list[str] with each entry being the name of a neighborhood
-
-def q2_neighborhoods_no_listings(city: str, year: int, month: int):
+def q2_neighborhoods_no_listings(year: int, month: int):
     month_start = datetime(year, month, 1)
-    
+
     # goes from month/01/year to (month+1)/01/year if month != 12 else to 01/01/(year + 1)
-    
-    # last day of the month
     if month == 12:
         month_end = datetime(year + 1, 1, 1)
     else:
         month_end = datetime(year, month + 1, 1)
 
-    # Step 1: listing_ids with at least one available day in the month (date, available) index
+    # Step 1: listing_ids with at least one available day in the month
     available_listing_ids = db.calendar.distinct(
         "listing_id",
         {
@@ -109,27 +107,27 @@ def q2_neighborhoods_no_listings(city: str, year: int, month: int):
         }
     )
 
-    # Step 2: neighborhoods of those listings (filtered by city)
-    occupied_neighborhoods = set(
-        doc["neighborhood"]
+    # Step 2: (city, neighborhood) pairs that have at least one available listing
+    occupied = set(
+        (doc["city"], doc["neighborhood"])
         for doc in db.listings.find(
-            {"_id": {"$in": available_listing_ids}, "city": city, "neighborhood": {"$ne": None}},
-            {"neighborhood": 1}
+            {"_id": {"$in": available_listing_ids}, "neighborhood": {"$ne": None}, "city": {"$ne": None}},
+            {"city": 1, "neighborhood": 1}
         )
     )
 
-    # Step 3: full neighborhood list for this city
-    all_neighborhoods = set(
-        doc["neighborhood"]
+    # Step 3: all (city, neighborhood) pairs across all cities
+    all_pairs = set(
+        (doc["city"], doc["neighborhood"])
         for doc in db.neighborhoods.find(
-            {"city": city, "neighborhood": {"$ne": None}},
-            {"neighborhood": 1}
+            {"neighborhood": {"$ne": None}, "city": {"$ne": None}},
+            {"city": 1, "neighborhood": 1}
         )
     )
 
-    # Step 4: neighborhoods with no available listings
-    empty = sorted(all_neighborhoods - occupied_neighborhoods)
-    return empty
+    # Step 4: pairs with no available listings, sorted by city then neighborhood
+    empty = sorted(all_pairs - occupied)
+    return [{"city": city, "neighborhood": neighborhood} for city, neighborhood in empty]
 
 
 # Shared helper: find valid booking-start days for a set of listing IDs in a month.
@@ -230,18 +228,15 @@ def q3_availability_periods(year: int, month: int, room_type: str = "Entire home
 
 # Query 5: Reviews by City per December
 #
-# Count how many reviews were written in December of a given year, grouped by city.
-# Params: year (int)
-# Returns: list of json objects containing {city: str, review_count: int}
+# Count how many reviews were written in December of each year, grouped by city and year.
+# Params: none
+# Returns: list of {city: str, year: int, review_count: int}
 
-def q5_reviews_by_city_december(year: int):
-    dec_start = datetime(year, 12, 1)
-    dec_end   = datetime(year + 1, 1, 1)
-
+def q5_reviews_by_city_december():
     pipeline = [
-        # Step 1: reviews in December of the target year
+        # Step 1: filter to December reviews only (any year)
         {"$match": {
-            "date": {"$gte": dec_start, "$lt": dec_end},
+            "$expr": {"$eq": [{"$month": "$date"}, 12]},
         }},
         # Step 2: join with listings to get city
         {"$lookup": {
@@ -251,14 +246,18 @@ def q5_reviews_by_city_december(year: int):
             "as":           "listing",
         }},
         {"$unwind": "$listing"},
-        # Step 3: group by city, count reviews
+        # Step 3: group by city + year, count reviews
         {"$group": {
-            "_id":          "$listing.city",
+            "_id": {
+                "city": "$listing.city",
+                "year": {"$year": "$date"},
+            },
             "review_count": {"$sum": 1},
         }},
-        {"$sort": {"review_count": -1}},
+        {"$sort": {"_id.city": 1, "_id.year": 1}},
         {"$project": {
-            "city":         "$_id",
+            "city":         "$_id.city",
+            "year":         "$_id.year",
             "review_count": 1,
             "_id":          0,
         }},
