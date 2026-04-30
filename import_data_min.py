@@ -16,16 +16,21 @@ neighborhoods: { _id (ObjectId), city, neighborhood }
 """
 
 import gzip
+import zipfile
 import csv
 import json
 import re
 import os
+import io
 from datetime import datetime
+from dotenv import load_dotenv
 
 from pymongo import MongoClient, ASCENDING
 from pymongo.errors import BulkWriteError
 
-MONGO_URI  = "mongodb://localhost:27017"
+load_dotenv()
+
+MONGO_URI  = os.getenv("MONGO_URI", "mongodb://localhost:27017")
 DB_NAME    = "airbnb_min"
 DATA_ROOT  = os.path.dirname(os.path.abspath(__file__))
 BATCH_SIZE = 5000
@@ -104,12 +109,18 @@ def bulk_insert(collection, docs, ordered=False):
 # collections
 
 def build_listing(row, city):
+    neighborhood = row.get("neighbourhood_cleansed") or None
+    room_type    = row.get("room_type") or None
+    host_id      = row.get("host_id") or None
+    host_name    = row.get("host_name") or None
+    if not all([neighborhood, room_type, host_id, host_name]):
+        return None
     return {
         "_id":          row["id"],
         "city":         city,
         "name":         row.get("name") or None,
-        "neighborhood": row.get("neighbourhood_cleansed") or None,
-        "room_type":    row.get("room_type") or None,
+        "neighborhood": neighborhood,
+        "room_type":    room_type,
         "property_type":row.get("property_type") or None,
         "accommodates": parse_int(row.get("accommodates")),
         "amenities":    parse_amenities(row.get("amenities")),
@@ -120,27 +131,38 @@ def build_listing(row, city):
         "listing_url":  row.get("listing_url") or None,
         "description":  row.get("description") or None,
         "host": {
-            "host_id":   row.get("host_id") or None,
-            "host_name": row.get("host_name") or None,
+            "host_id":   host_id,
+            "host_name": host_name,
         },
     }
 
 def build_calendar_doc(row, city):
+    date      = parse_date(row["date"])
+    available = parse_bool(row["available"])
+    min_n     = parse_int(row.get("minimum_nights"))
+    max_n     = parse_int(row.get("maximum_nights"))
+    if not all([date, available is not None, min_n is not None, max_n is not None]):
+        return None
     return {
         "listing_id":     row["listing_id"],
-        "date":           parse_date(row["date"]),
-        "available":      parse_bool(row["available"]),
+        "date":           date,
+        "available":      available,
         "price":          parse_price(row.get("price")),
-        "minimum_nights": parse_int(row.get("minimum_nights")),
-        "maximum_nights": parse_int(row.get("maximum_nights")),
+        "minimum_nights": min_n,
+        "maximum_nights": max_n,
     }
 
 def build_review_doc(row, city):
+    listing_id  = row.get("listing_id") or None
+    reviewer_id = row.get("reviewer_id") or None
+    date        = parse_date(row["date"])
+    if not all([listing_id, reviewer_id, date]):
+        return None
     return {
-        "listing_id":    row["listing_id"],
-        "reviewer_id":   row.get("reviewer_id") or None,
+        "listing_id":    listing_id,
+        "reviewer_id":   reviewer_id,
         "reviewer_name": row.get("reviewer_name") or None,
-        "date":          parse_date(row["date"]),
+        "date":          date,
         "comments":      row.get("comments") or None,
     }
 
@@ -156,10 +178,22 @@ def build_neighborhood_doc(row, city):
 
 # import fn
 
+def open_file(path, compressed):
+    """Open a file for reading, handling gzip, zip, or plain text."""
+    if not compressed:
+        return open(path, "r", encoding="utf-8"), None
+    with open(path, "rb") as probe:
+        magic = probe.read(2)
+    if magic == b"PK":
+        zf = zipfile.ZipFile(path, "r")
+        name = next(n for n in zf.namelist() if n.endswith(".csv"))
+        return io.TextIOWrapper(zf.open(name), encoding="utf-8"), zf
+    return gzip.open(path, "rt", encoding="utf-8"), None
+
 def import_collection(col, city, path, builder, compressed=True):
     batch, total = [], 0
-    open_fn = gzip.open if compressed else open
-    with open_fn(path, "rt", encoding="utf-8") as f:
+    f, handle = open_file(path, compressed)
+    try:
         for row in csv.DictReader(f):
             doc = builder(row, city)
             if doc:
@@ -167,8 +201,12 @@ def import_collection(col, city, path, builder, compressed=True):
             if len(batch) >= BATCH_SIZE:
                 total += bulk_insert(col, batch)
                 batch = []
-    if batch:
-        total += bulk_insert(col, batch)
+        if batch:
+            total += bulk_insert(col, batch)
+    finally:
+        f.close()
+        if handle:
+            handle.close()
     print(f"    → {total:,} docs")
 
 
