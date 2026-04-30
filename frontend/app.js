@@ -1,8 +1,5 @@
 const API_BASE_URL = 'http://localhost:5000/api';
 
-// ============================
-// Utility Functions
-// ============================
 const fetchData = async (endpoint, params = {}) => {
     try {
         const queryString = new URLSearchParams(params).toString();
@@ -16,26 +13,18 @@ const fetchData = async (endpoint, params = {}) => {
 };
 
 const revealDelay = (idx) => ({ animationDelay: `${idx * 65 + 120}ms` });
-
-// ============================
-// Component: Header
-// ============================
+//HEADER
 const Header = () => {
     return (
         <header className="hero-block">
             <div className="max-w-7xl mx-auto px-6 hero-grid">
                 <div className="glass-panel">
                     <div className="hero-ribbon">
-                        <span></span>
                         <span>AirBnB Data Experience</span>
                     </div>
                     <h1 className="hero-title">AirBnB Analytics Lab</h1>
-                    <p className="hero-copy">
-                        A focused workspace for uncovering availability patterns, booking momentum, and neighborhood gaps in Oregon short-term rentals.
-                    </p>
                     <div className="hero-meta">
-                        <span className="meta-pill">Portland • Salem • Multi-city</span>
-                        <span className="meta-pill">Query-driven insights</span>
+                        <span className="meta-pill">Supports: Portland, Salem, Los Angeles, San Diego</span>
                     </div>
                 </div>
             </div>
@@ -54,11 +43,18 @@ const Query1Listings = () => {
     const [city, setCity] = React.useState('Portland');
     const [startDate, setStartDate] = React.useState('2024-03-15');
     const [endDate, setEndDate] = React.useState('2024-03-16');
+    const validCities = ['Portland', 'Salem', 'Los Angeles', 'San Diego'];
 
     const handleSearch = async (e) => {
         e.preventDefault();
-        setLoading(true);
         setError(null);
+
+        if (!validCities.includes(city)) {
+            setError('Please choose one of the supported cities.');
+            return;
+        }
+
+        setLoading(true);
         try {
             const result = await fetchData('/query1/listings', {
                 city,
@@ -74,12 +70,11 @@ const Query1Listings = () => {
     };
 
     return (
-        <div className="glass-panel mb-8 reveal" style={{ animationDelay: '80ms' }}>
+        <div className="glass-panel mb-8 reveal max-w-6xl mx-auto" style={{ animationDelay: '80ms' }}>
             <div className="flex flex-col gap-5 mb-6">
                 <div className="status-pill">Search available listings by date and rating</div>
                 <div className="flex items-center gap-3 flex-wrap">
                     <h2 className="text-3xl font-bold">Listings Search</h2>
-                    <span className="status-pill">Portland first</span>
                 </div>
             </div>
 
@@ -87,7 +82,11 @@ const Query1Listings = () => {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                         <label className="label-fine">City</label>
-                        <input value={city} onChange={(e) => setCity(e.target.value)} className="field-box" />
+                        <select value={city} onChange={(e) => setCity(e.target.value)} className="field-box">
+                            {validCities.map((option) => (
+                                <option key={option} value={option}>{option}</option>
+                            ))}
+                        </select>
                     </div>
                     <div>
                         <label className="label-fine">Start Date</label>
@@ -132,7 +131,7 @@ const Query1Listings = () => {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
                                     <div className="glass-panel text-slate-100 bg-white/5 border-white/10">
                                         <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Guests</p>
                                         <p className="text-xl font-semibold">{listing.accommodates}</p>
@@ -190,12 +189,10 @@ const Query2Neighborhoods = () => {
     };
 
     return (
-        <div className="glass-panel mb-8 reveal" style={{ animationDelay: '100ms' }}>
+        <div className="glass-panel mb-8 reveal max-w-6xl mx-auto" style={{ animationDelay: '100ms' }}>
             <div className="flex flex-col gap-5 mb-6">
-                <div className="status-pill">Discover neighborhoods that remain empty for a month</div>
                 <div className="flex flex-wrap items-center gap-3">
                     <h2 className="text-3xl font-bold">No-listing Zones</h2>
-                    <span className="status-pill">City-wide audit</span>
                 </div>
             </div>
 
@@ -226,7 +223,7 @@ const Query2Neighborhoods = () => {
                     <div className="glass-panel status-pill bg-white/5 border-white/10 text-slate-100">
                         {data.count} neighborhoods without listings in {data.month}
                     </div>
-                    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-2">
                         {data.neighborhoods.map((item, idx) => (
                             <div key={idx} className="glass-card reveal" style={revealDelay(idx)}>
                                 <p className="text-sm uppercase tracking-[0.22em] text-slate-500 mb-2">{item.city}</p>
@@ -262,12 +259,10 @@ const Query3Availability = () => {
     };
 
     return (
-        <div className="glass-panel mb-8 reveal" style={{ animationDelay: '120ms' }}>
+        <div className="glass-panel mb-8 reveal max-w-6xl mx-auto" style={{ animationDelay: '120ms' }}>
             <div className="flex flex-col gap-5 mb-6">
-                <div className="status-pill">Availability chunks for Salem entire homes</div>
                 <div className="flex flex-wrap items-center gap-3">
                     <h2 className="text-3xl font-bold">Booking Windows</h2>
-                    <span className="status-pill">Month filter</span>
                 </div>
             </div>
 
@@ -301,7 +296,7 @@ const Query3Availability = () => {
                         {data.listings.map((listing, idx) => (
                             <div key={idx} className="glass-card reveal" style={revealDelay(idx)}>
                                 <h3 className="text-2xl font-semibold mb-3">{listing.name}</h3>
-                                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 mb-4">
+                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-4">
                                     <div className="glass-panel bg-white/5 border-white/10">
                                         <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Min nights</p>
                                         <p className="text-xl font-semibold">{listing.min_nights}</p>
@@ -368,7 +363,6 @@ const Query4BookingTrend = () => {
     return (
         <div className="glass-panel mb-8 reveal" style={{ animationDelay: '140ms' }}>
             <div className="flex flex-col gap-5 mb-6">
-                <div className="status-pill">Month-by-month available nights for Portland entire homes</div>
                 <div className="flex flex-wrap items-center gap-3">
                     <h2 className="text-3xl font-bold">Month Trend</h2>
                     <span className="status-pill">March–August</span>
@@ -450,10 +444,8 @@ const Query5ReviewTrend = () => {
     return (
         <div className="glass-panel mb-8 reveal" style={{ animationDelay: '160ms' }}>
             <div className="flex flex-col gap-5 mb-6">
-                <div className="status-pill">December review volume mapped by city</div>
                 <div className="flex flex-wrap items-center gap-3">
-                    <h2 className="text-3xl font-bold">Review Pulse</h2>
-                    <span className="status-pill">Yearly December trend</span>
+                    <h2 className="text-3xl font-bold">Yearly December Trend</h2>
                 </div>
             </div>
 
@@ -516,10 +508,8 @@ const Query6RepeatBookings = () => {
     return (
         <div className="glass-panel mb-8 reveal" style={{ animationDelay: '180ms' }}>
             <div className="flex flex-col gap-5 mb-6">
-                <div className="status-pill">Repeat reviewers who may book again</div>
                 <div className="flex flex-wrap items-center gap-3">
-                    <h2 className="text-3xl font-bold">Reminder Set</h2>
-                    <span className="status-pill">Retarget opportunity</span>
+                    <h2 className="text-3xl font-bold">Potential Future Leads</h2>
                 </div>
             </div>
 
@@ -618,10 +608,6 @@ const App = () => {
 
                 <CurrentComponent />
             </main>
-
-            <footer className="glass-panel footer-note text-center mx-6 mb-8 reveal" style={{ animationDelay: '200ms' }}>
-                Built to explore booking pulse and availability logic with a bold, atmospheric interface.
-            </footer>
         </div>
     );
 };
