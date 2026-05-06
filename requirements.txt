@@ -1,0 +1,5 @@
+certifi
+flask
+flask_cors
+pymongo
+python-dotenv

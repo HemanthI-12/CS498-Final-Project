@@ -12,24 +12,12 @@ MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/
 pip install -r requirements.txt
 ```
 
-Or run setup script:
-- **Windows**: `setup.bat`
-- **Mac/Linux**: `bash setup.sh`
-
-### 3. Start Backend (Terminal 1)
+### 3. Start Dashboard
 ```bash
-python app.py
-```
-
-### 4. Start Frontend Server (Terminal 2)
-```bash
-python -m http.server 8000
+python3 frontend/app.py
 ```
 
 ### 5. Open Dashboard
 ```
-http://localhost:8000
+http://localhost:5001
 ```
-
-trouble shooting
-- Try API directly: `http://localhost:5000/api/info`
